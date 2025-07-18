@@ -1,25 +1,73 @@
+import { Pane } from "tweakpane";
 import "./style.css";
 
 let canvas;
 let ctx;
 let flowField;
 let flowFieldAnimation;
+let pane;
+let tab;
+let pauseBtn;
+
+const initPattern = () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  flowField = new FlowFieldEffect(ctx, canvas.width, canvas.height);
+  flowField.animate(0);
+
+  pane = new Pane();
+  tab = pane.addTab({
+    pages: [{ title: "Parameters" }, { title: "Colors" }],
+  });
+  tab.pages[0].addBlade({
+    view: "text",
+    label: "messege:",
+    parse: (v) => String(v),
+    value: "set cellSize to 1 :)",
+  });
+
+  tab.pages[0].addBinding(flowField, "cellSize", { min: 1, max: 30, steps: 1 });
+  tab.pages[0].addBinding(flowField, "lineWidth", {
+    min: 0,
+    max: 10,
+    steps: 1,
+  });
+  tab.pages[0].addBinding(flowField, "zoom", {
+    min: 0.0001,
+    max: 0.03,
+    steps: 0.001,
+  });
+  tab.pages[0].addBinding(flowField, "maximumLineLength", {
+    min: 0,
+    max: 100,
+    steps: 1,
+  });
+  pauseBtn = tab.pages[0].addButton({
+    title: "pause/resume",
+    label: "animation",
+  });
+  pauseBtn.on("click", () => {
+    if (flowField.started) {
+      flowField.started = false;
+    } else {
+      flowField.started = true;
+    }
+  });
+};
 
 window.addEventListener("load", () => {
   canvas = document.getElementById("canvas1");
   ctx = canvas.getContext("2d");
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  flowField = new FlowFieldEffect(ctx, canvas.width, canvas.height);
-  flowField.animate(0);
+  initPattern();
 });
 
 window.addEventListener("resize", () => {
   cancelAnimationFrame(flowFieldAnimation);
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  flowField = new FlowFieldEffect(ctx, canvas.width, canvas.height);
-  flowField.animate(0);
+
+  tab.pages.forEach((element) => {
+    tab.removePage(0);
+  });
+  initPattern();
 });
 
 const mouse = {
@@ -38,9 +86,11 @@ class FlowFieldEffect {
   #height;
   constructor(ctx, width, height) {
     this.#ctx = ctx;
-    this.#ctx.lineWidth = 1;
     this.#width = width;
     this.#height = height;
+    this.lineWidth = 1;
+    this.maximumLineLength = 60;
+    this.minimumLineLength = 1 * 10000;
     this.angle = 0;
     this.lastTime = 0;
     this.interval = 1000 / 60;
@@ -49,8 +99,10 @@ class FlowFieldEffect {
     this.gradient;
     this.#createGradient();
     this.#ctx.strokeStyle = this.gradient;
+    this.zoom = 0.01;
     this.radius = 0;
     this.vr = 0.03;
+    this.started = true;
   }
   #createGradient() {
     this.gradient = this.#ctx.createLinearGradient(
@@ -72,8 +124,10 @@ class FlowFieldEffect {
     let dx = mouse.x - positionX;
     let dy = mouse.y - positionY;
     let distance = dx * dx + dy * dy;
-    if (distance > 500000) {
-      distance = 500000;
+    if (distance > this.maximumLineLength * 10000) {
+      distance = this.maximumLineLength * 10000;
+    } else if (distance < this.minimumLineLength) {
+      distance = this.minimumLineLength;
     }
     const length = distance * 0.0001;
     this.#ctx.beginPath();
@@ -89,13 +143,17 @@ class FlowFieldEffect {
     this.lastTime = timeStamp;
     if (this.timer > this.interval) {
       this.#ctx.clearRect(0, 0, this.#width, this.#height);
-      this.radius += this.vr;
-      if (this.radius > 5 || this.radius < -5) {
-        this.vr *= -1;
+      this.#ctx.lineWidth = this.lineWidth;
+      if (this.started) {
+        this.radius += this.vr;
+        if (this.radius > 5 || this.radius < -5) {
+          this.vr *= -1;
+        }
       }
       for (let y = 0; y < this.#height; y += this.cellSize) {
         for (let x = 0; x < this.#width; x += this.cellSize) {
-          const angle = (Math.cos(x * 0.01) + Math.sin(y * 0.01)) * this.radius;
+          const angle =
+            (Math.cos(x * this.zoom) + Math.sin(y * this.zoom)) * this.radius;
           this.#drawLine(angle, x, y);
         }
       }
