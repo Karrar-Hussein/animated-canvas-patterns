@@ -47,11 +47,7 @@ const initPattern = () => {
     label: "animation",
   });
   pauseBtn.on("click", () => {
-    if (flowField.started) {
-      flowField.started = false;
-    } else {
-      flowField.started = true;
-    }
+    flowField.started = !flowField.started;
   });
 };
 
@@ -75,9 +71,26 @@ const mouse = {
   y: 0,
 };
 
+// Mouse movement for desktop
 window.addEventListener("mousemove", (e) => {
   mouse.x = e.x;
   mouse.y = e.y;
+});
+
+// ✅ Added: Touch movement for mobile
+window.addEventListener("touchmove", (e) => {
+  if (e.touches.length > 0) {
+    mouse.x = e.touches[0].clientX;
+    mouse.y = e.touches[0].clientY;
+  }
+});
+
+// ✅ Optional: touchstart (if needed, keeps latest touch position)
+window.addEventListener("touchstart", (e) => {
+  if (e.touches.length > 0) {
+    mouse.x = e.touches[0].clientX;
+    mouse.y = e.touches[0].clientY;
+  }
 });
 
 class FlowFieldEffect {
